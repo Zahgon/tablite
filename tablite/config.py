@@ -71,8 +71,7 @@ class Config(object):
     @classmethod
     def reset(cls):
         """Resets the config class to original values."""
-        for k, v in _default_values.items():
-            setattr(Config, k, v)
+        pass
 
     @classmethod
     def page_steps(cls, length):

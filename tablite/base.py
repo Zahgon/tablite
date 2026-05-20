@@ -55,10 +55,7 @@ def register(path):
 
 def shutdown():
     """method to clean up temporary files triggered at shutdown."""
-    for path in file_registry:
-        if Config.pid in str(path):  # safety feature to prevent rm -rf /
-            log.debug(f"shutdown: running rmtree({path})")
-            shutil.rmtree(path)
+    pass
 
 
 atexit.register(shutdown)
@@ -78,8 +75,7 @@ class SimplePage(object):
 
     def _incr_refcount(self):
         """increment refcount of this page if it's used by this process"""
-        if self.owns():
-            self.refcounts[self.path] = self.refcounts.get(self.path, 0) + 1
+        pass
 
     def __setstate__(self, state):
         """
@@ -91,18 +87,6 @@ class SimplePage(object):
 
         self._incr_refcount()
 
-    @classmethod
-    def next_id(cls, path):
-        path = Path(path)
-
-        while True:
-            _id = f"{os.getpid()}-{next(cls.ids)}"
-            _path = path / "pages" / f"{_id}.npy"
-
-            if not _path.exists():
-                break  # make sure we don't override existing pages if they are created outside of main thread
-
-        return _id
 
     def __len__(self):
         return self.len
@@ -118,10 +102,6 @@ class SimplePage(object):
     def __hash__(self) -> int:
         return hash(self.path)
 
-    def owns(self):
-        parts = self.path.parts
-
-        return all((p in parts for p in Path(Config.pid).parts))
 
     def __del__(self):
         """When python's reference count for an object is 0, python uses
@@ -245,9 +225,7 @@ class Column(object):
 
     def repaginate(self):
         """resizes pages to Config.PAGE_SIZE"""
-        from tablite.nimlite import repaginate as _repaginate
-
-        _repaginate(self)
+        pass
 
     def extend(self, value):  # USER FUNCTION.
         """extends the column.
@@ -289,54 +267,7 @@ class Column(object):
         can reference the pages 1 and 2 and only need to store
         the np.ndarray that is unique to it.
         """
-        # internal function
-        if isinstance(item, int):
-            if item < 0:
-                item = len(self) + item
-            item = slice(item, item + 1, 1)
-
-        type_check(item, slice)
-        is_reversed = False if (item.step is None or item.step > 0) else True
-
-        length = len(self)
-        scan_item = slice(*item.indices(length))
-        range_item = range(*item.indices(length))
-
-        pages = []
-        start, end = 0, 0
-        for page in self.pages:
-            start, end = end, end + page.len
-            if is_reversed:
-                if start > scan_item.start:
-                    break
-                if end < scan_item.stop:
-                    continue
-            else:
-                if start > scan_item.stop:
-                    break
-                if end < scan_item.start:
-                    continue
-            ro = intercept(range(start, end), range_item)
-            if len(ro) == 0:
-                continue
-            elif len(ro) == page.len:  # share the whole immutable page
-                pages.append(page)
-            else:  # fetch the slice and filter it.
-                search_slice = slice(ro.start - start, ro.stop - start, ro.step)
-                np_arr = load_numpy(page.path)
-                match = np_arr[search_slice]
-                pages.append(match)
-
-        if is_reversed:
-            pages.reverse()
-            for ix, page in enumerate(pages):
-                if isinstance(page, SimplePage):
-                    data = page.get()
-                    pages[ix] = np.flip(data)
-                else:
-                    pages[ix] = np.flip(page)
-
-        return pages
+        pass
 
     def iter_by_page(self):
         """iterates over the column, page by page.
@@ -623,14 +554,7 @@ class Column(object):
         del column[n]
         ```
         """
-        start, end = 0, 0
-        for index, page in enumerate(self.pages):
-            start, end = end, end + page.len
-            if start <= key < end:
-                data = page.get()
-                new_data = np.delete(data, [key])
-                new_page = Page(self.path, new_data)
-                self.pages[index] = new_page
+        pass
 
     def _del_by_slice(self, key:slice) -> None:
         """handles the following case:
@@ -638,32 +562,7 @@ class Column(object):
         del column[m:n:o]
         ```
         """
-        key_start, key_stop, key_step = key.indices(len(self))
-        seq = range(key_start, key_stop, key_step)
-
-        # determine change
-        head, changed, tail = [], [], []
-        start, end = 0, 0
-        for page in self.pages:
-            start, end = end, end + page.len
-            if key_stop < start and not changed:
-                head.append(page)
-            elif start <= key_start < end:
-                starts_on = start
-                changed.append(page)
-            elif start <= key_stop <= end:
-                changed.append(page)
-            else:  # key_stop < start:
-                tail.append(page)
-
-        # create np array
-        changed_pages = [p.get() for p in changed]
-        new = np_type_unify(changed_pages)
-        # create mask for np.delete.
-        filter = [i - starts_on for i in seq]
-        pruned = np.delete(new, filter)
-        new_arrays = self._paginate(pruned)
-        self.pages = head + [Page(self.path, arr) for arr in new_arrays] + tail
+        pass
 
     def get_by_indices(self, indices: Union[List[int], np.ndarray]) -> np.ndarray:
         """retrieves values from column given a set of indices.
@@ -871,18 +770,7 @@ class Column(object):
         """
         removes all values of `values`
         """
-        type_check(values, tuple)
-        if isinstance(values[0], tuple):
-            values = values[0]
-        to_remove = list_to_np_array(values)
-        for index, page in enumerate(self.pages):
-            data = page.get()
-            bitmask = np.isin(data, to_remove)  # identify elements to remove.
-            if bitmask.any():
-                bitmask = np.invert(bitmask)  # turn bitmask around to keep.
-                new_data = np.compress(bitmask, data)
-                new_page = Page(self.path, new_data)
-                self.pages[index] = new_page
+        pass
 
     def replace(self, mapping):
         """
@@ -931,11 +819,7 @@ class Column(object):
         Returns:
             dict: frequency of occurrence of python datatypes
         """
-        d = Counter()
-        for page in self.pages:
-            assert isinstance(page.dtype, dict)
-            d += page.dtype
-        return dict(d)
+        pass
 
     def index(self):
         """
@@ -1020,8 +904,7 @@ class Column(object):
             - sum (int/float, length of str, date)
             - histogram (see .histogram)
         """
-        values, counts = self.histogram()
-        return summary_statistics(values, counts)
+        pass
 
     def count(self, item):
         """counts appearances of item in column.
@@ -1139,14 +1022,7 @@ class BaseTable(object):
                 int: real bytes used on disk
                 int: total bytes used if flattened
         """
-        real = {}
-        total = 0
-        for column in self.columns.values():
-            for page in set(column.pages):
-                real[page] = page.path.stat().st_size
-            for page in column.pages:
-                total += real[page]
-        return sum(real.values()), total
+        pass
 
     def items(self):  # USER FUNCTION.
         """returns table as dict
@@ -1303,19 +1179,7 @@ class BaseTable(object):
         Yields:
             tuple: values is same order as columns.
         """
-        n_max = len(self)
-        generators = []
-        for name, column in self.columns.items():
-            if len(column) < n_max:
-                warnings.warn(
-                    f"Column {name} has length {len(column)} / {n_max}. None will appear as fill value."
-                )
-            generators.append(
-                chain(iter(column), repeat(None, times=n_max - len(column)))
-            )
-
-        for _ in range(len(self)):
-            yield [numpy_to_python(next(i)) for i in generators]
+        pass
 
     def __eq__(self, other) -> bool:  # USER FUNCTION.
         """Determines if two tables have identical content.
@@ -1565,55 +1429,7 @@ class BaseTable(object):
         ```
 
         """
-        if not BaseTable._add_row_slow_warning:
-            warnings.warn(
-                "add_rows is slow. Consider using add_columns and then assigning values to the columns directly."
-            )
-            BaseTable._add_row_slow_warning = True
-
-        if args:
-            if not all(isinstance(i, (list, tuple, dict)) for i in args):  # 1,4
-                args = [args]
-
-            if all(isinstance(i, (list, tuple, dict)) for i in args):  # 2,3,7,8
-                # 1. turn the data into columns:
-
-                d = {n: [] for n in self.columns}
-                for arg in args:
-                    if len(arg) != len(self.columns):
-                        raise ValueError(
-                            f"len({arg})== {len(arg)}, but there are {len(self.columns)} columns"
-                        )
-
-                    if isinstance(arg, dict):
-                        for k, v in arg.items():  # 7,8
-                            d[k].append(v)
-
-                    elif isinstance(arg, (list, tuple)):  # 2,3
-                        for n, v in zip(self.columns, arg):
-                            d[n].append(v)
-
-                    else:
-                        raise TypeError(f"{arg}?")
-                # 2. extend the columns
-                for n, values in d.items():
-                    col = self.columns[n]
-                    col.extend(list_to_np_array(values))
-
-        if kwargs:
-            if isinstance(kwargs, dict):
-                if all(isinstance(v, (list, tuple)) for v in kwargs.values()):
-                    for k, v in kwargs.items():
-                        col = self.columns[k]
-                        col.extend(list_to_np_array(v))
-                else:
-                    for k, v in kwargs.items():
-                        col = self.columns[k]
-                        col.extend(np.array([v]))
-            else:
-                raise ValueError(f"format not recognised: {kwargs}")
-
-        return
+        pass
 
     def add_columns(self, *names):
         """Adds column names to table."""
@@ -1647,20 +1463,7 @@ class BaseTable(object):
                                     | A| B| -| D|
         ```
         """
-        if not isinstance(other, BaseTable):
-            raise TypeError(f"stack only works for Table, not {type(other)}")
-
-        cp = self.copy()
-        for name, col2 in other.columns.items():
-            if name not in cp.columns:
-                cp[name] = [None] * len(self)
-            cp[name].pages.extend(col2.pages[:])
-
-        for name in self.columns:
-            if name not in other.columns:
-                if len(cp) > 0:
-                    cp[name].extend(np.array([None] * len(other)))
-        return cp
+        pass
 
     def types(self):
         """
@@ -1676,11 +1479,7 @@ class BaseTable(object):
         }
         ```
         """
-        d = {}
-        for name, col in self.columns.items():
-            assert isinstance(col, Column)
-            d[name] = col.types()
-        return d
+        pass
 
     def display_dict(self, slice_=None, blanks=None, dtype=False):
         """helper for creating dict for display.
@@ -1696,76 +1495,7 @@ class BaseTable(object):
         Returns:
             dict: from Table.
         """
-        if not self.columns:
-            print("Empty Table")
-            return
-
-        def datatype(col):  # PRIVATE
-            """creates label for column datatype."""
-            types = col.types()
-            if len(types) == 0:
-                typ = "empty"
-            elif len(types) == 1:
-                dt, _ = types.popitem()
-                typ = dt.__name__
-            else:
-                typ = "mixed"
-            return typ
-
-        row_count_tags = ["#", "~", "*"]
-        cols = set(self.columns)
-        for n, tag in product(range(1, 6), row_count_tags):
-            if n * tag not in cols:
-                tag = n * tag
-                break
-
-        if not isinstance(slice_, (slice, type(None))):
-            raise TypeError(f"slice_ must be None or slice, not {type(slice_)}")
-        if isinstance(slice_, slice):
-            slc = slice_
-        if slice_ is None:
-            if len(self) <= 20:
-                slc = slice(0, 20, 1)
-            else:
-                slc = None
-
-        n = len(self)
-        if slc:  # either we want slc or we want everything.
-            row_no = list(range(*slc.indices(len(self))))
-            data = {tag: [f"{i:,}".rjust(2) for i in row_no]}
-            for name, col in self.columns.items():
-                data[name] = list(chain(iter(col), repeat(blanks, times=n - len(col))))[
-                    slc
-                ]
-        else:
-            data = {}
-            j = int(math.ceil(math.log10(n)) / 3) + len(str(n))
-            row_no = (
-                [f"{i:,}".rjust(j) for i in range(7)]
-                + ["..."]
-                + [f"{i:,}".rjust(j) for i in range(n - 7, n)]
-            )
-            data = {tag: row_no}
-
-            for name, col in self.columns.items():
-                if len(col) == n:
-                    row = col[:7].tolist() + ["..."] + col[-7:].tolist()
-                else:
-                    empty = [blanks] * 7
-                    head = (col[:7].tolist() + empty)[:7]
-                    tail = (col[n - 7 :].tolist() + empty)[-7:]
-                    row = head + ["..."] + tail
-                data[name] = row
-
-        if dtype:
-            for name, values in data.items():
-                if name in self.columns:
-                    col = self.columns[name]
-                    values.insert(0, datatype(col))
-                else:
-                    values.insert(0, "row")
-
-        return data
+        pass
 
     def to_ascii(self, slice_=None, blanks=None, dtype=False):
         """returns ascii view of table as string.
@@ -1775,49 +1505,7 @@ class BaseTable(object):
             blanks (str, optional): value for whitespace. Defaults to None.
             dtype (bool, optional): adds subheader with datatype for column. Defaults to False.
         """
-
-        def adjust(v, length):  # PRIVATE FUNCTION
-            """whitespace justifies field values based on datatype"""
-            if v is None:
-                return str(blanks).ljust(length)
-            elif isinstance(v, str):
-                return v.ljust(length)
-            else:
-                return str(v).rjust(length)
-
-        if not self.columns:
-            return str(self)
-
-        d = {}
-        for name, values in self.display_dict(
-            slice_=slice_, blanks=blanks, dtype=dtype
-        ).items():
-            as_text = [str(v) for v in values] + [str(name)]
-            width = max(len(i) for i in as_text)
-            new_name = name.center(width, " ")
-            if dtype:
-                values[0] = values[0].center(width, " ")
-            d[new_name] = [adjust(v, width) for v in values]
-
-        rows = dict_to_rows(d)
-        s = []
-        s.append("+" + "+".join(["=" * len(n) for n in rows[0]]) + "+")
-        s.append("|" + "|".join(rows[0]) + "|")  # column names
-        start = 1
-        if dtype:
-            s.append("|" + "|".join(rows[1]) + "|")  # datatypes
-            start = 2
-
-        s.append("+" + "+".join(["-" * len(n) for n in rows[0]]) + "+")
-        for row in rows[start:]:
-            s.append("|" + "|".join(row) + "|")
-        s.append("+" + "+".join(["=" * len(n) for n in rows[0]]) + "+")
-
-        if len(set(len(c) for c in self.columns.values())) != 1:
-            warning = f"Warning: Columns have different lengths. {blanks} is used as fill value."
-            s.append(warning)
-
-        return "\n".join(s)
+        pass
 
     def show(self, slice_=None, blanks=None, dtype=False):
         """prints ascii view of table.
@@ -1827,7 +1515,7 @@ class BaseTable(object):
             blanks (str, optional): value for whitespace. Defaults to None.
             dtype (bool, optional): adds subheader with datatype for column. Defaults to False.
         """
-        print(self.to_ascii(slice_=slice_, blanks=blanks, dtype=dtype))
+        pass
 
     def _repr_html_(self, slice_=None, blanks=None, dtype=False):
         """
@@ -1839,22 +1527,7 @@ class BaseTable(object):
             blanks (str, optional): value for whitespace. Defaults to None.
             dtype (bool, optional): adds subheader with datatype for column. Defaults to False.
         """
-        start, end = "<div><table border=1>", "</table></div>"
-
-        if not self.columns:
-            return f"{start}<tr>Empty Table</tr>{end}"
-        rows = dict_to_rows(
-            self.display_dict(slice_=slice_, blanks=blanks, dtype=dtype)
-        )
-        html = "".join(
-            ["<tr>" + "".join(f"<th>{cn}</th>" for cn in row) + "</tr>" for row in rows]
-        )
-
-        warning = ""
-        if len(set(len(c) for c in self.columns.values())) != 1:
-            warning = f"Warning: Columns have different lengths. {blanks} is used as fill value."
-
-        return start + "".join(html) + end + warning
+        pass
 
     def to_dict(self, columns=None, slice_=None):
         """
@@ -1878,16 +1551,7 @@ class BaseTable(object):
         ```
 
         """
-        if slice_ is None:
-            slice_ = slice(0, len(self))
-        assert isinstance(slice_, slice)
-
-        if columns is None:
-            columns = list(self.columns.keys())
-        if not isinstance(columns, list):
-            raise TypeError("expected columns as list of strings")
-
-        return {name: list(self.columns[name][slice_]) for name in columns}
+        pass
 
     def as_json_serializable(
         self, row_count="row id", start_on=1, columns=None, slice_=None
@@ -1904,25 +1568,7 @@ class BaseTable(object):
         Returns:
             JSON serializable dict: All python datatypes have been converted to JSON compliant data.
         """
-        if slice_ is None:
-            slice_ = slice(0, len(self))
-
-        assert isinstance(slice_, slice)
-        new = {"columns": {}, "total_rows": len(self)}
-        if row_count is not None:
-            new["columns"][row_count] = [
-                i + start_on for i in range(*slice_.indices(len(self)))
-            ]
-
-        d = self.to_dict(columns, slice_=slice_)
-        for k, data in d.items():
-            new_k = unique_name(
-                k, new["columns"]
-            )  # used to avoid overwriting the `row id` key.
-            new["columns"][new_k] = [
-                DataTypes.to_json(v) for v in data
-            ]  # deal with non-json datatypes.
-        return new
+        pass
 
     def index(self, *args):
         """
@@ -1974,16 +1620,4 @@ class BaseTable(object):
         Returns:
             np.array(int64): indices of unique records.
         """
-        if not args:
-            raise ValueError("*args (column names) is required")
-        seen = set()
-        unique = set()
-        iterators = [iter(self.columns[c]) for c in args]
-        for ix, key in tqdm(enumerate(zip(*iterators)), disable=Config.TQDM_DISABLE):
-            key_hash = hash(tuple(numpy_to_python(k) for k in key))
-            if key_hash in seen:
-                continue
-            else:
-                seen.add(key_hash)
-                unique.add(ix)
-        return np.array(sorted(unique))
+        pass

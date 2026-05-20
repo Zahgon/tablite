@@ -98,49 +98,8 @@ def reindex(T, index):
     return m(T, index)
 
 
-def _sp_reindex(T, index, tqdm=_tqdm, pbar=None):
-    return _reindex(T, index, tqdm=tqdm, pbar=pbar)
 
 
-def _mp_reindex(T, index, tqdm=_tqdm, pbar=None):
-    assert isinstance(index, np.ndarray)
-    return _sp_reindex(T, index, tqdm=tqdm, pbar=pbar)
-
-    index, shm = share_mem(index, dtype=index.dtype)
-    # shm = shared_memory.SharedMemory(create=True, size=index.nbytes)  # the co_processors will read this.
-    # sort_index = np.ndarray(index.shape, dtype=index.dtype, buffer=shm.buf)
-    # sort_index[:] = index
-
-    new = {}
-    tasks = []
-    for name in T.columns:
-        col = T[name]
-        new[name] = []
-
-        start, end = 0, 0
-        for page in col.pages:
-            start, end = end, start + len(page)
-            src = page.path
-            dst = page.path.parent / f"{next(Page.ids)}.npy"
-            t = Task(reindex_task, src, dst, shm.name, index.shape, start, end)
-            new[name].append(dst)
-            tasks.append(t)
-
-    cpus = min(len(tasks), psutil.cpu_count(logical=False))
-    with TaskManager(cpu_count=cpus, error_mode="exception") as tm:
-        errs = tm.execute(tasks)
-
-    shm.close()
-    shm.unlink()
-
-    t = type(T)()
-    for name in T.columns:
-        t[name] = Column(t.path)
-        for dst in new[name]:
-            data = load_numpy(dst)
-            t[name].extend(data)
-            os.remove(dst)
-    return t
 
 
 def sort(T, mapping, sort_mode="excel", tqdm=_tqdm, pbar: _tqdm = None):
@@ -172,6 +131,4 @@ def is_sorted(T, mapping, sort_mode="excel"):
     Returns:
         bool
     """
-    index = sort_index(T, mapping, sort_mode=sort_mode)
-    match = np.arange(len(T))
-    return np.all(index == match)
+    pass

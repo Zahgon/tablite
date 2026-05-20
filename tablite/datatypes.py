@@ -44,48 +44,17 @@ class DataTypes(object):
         "pickle": 11,
     }
 
-    @classmethod
-    def type_code(cls, value):
-        if type(value) in cls._type_codes:
-            return cls._type_codes[type(value)]
-        elif hasattr(value, "dtype"):
-            dtype = pytype(value)
-            return cls._type_codes[dtype]
-        else:
-            return cls._type_codes["pickle"]
 
-    def b_none(v):
-        return b"None"
 
-    def b_bool(v):
-        return bytes(str(v), encoding="utf-8")
 
-    def b_int(v):
-        return bytes(str(v), encoding="utf-8")
 
-    def b_float(v):
-        return bytes(str(v), encoding="utf-8")
 
-    def b_str(v):
-        return v.encode("utf-8")
 
-    def b_bytes(v):
-        return v
 
-    def b_datetime(v):
-        return bytes(v.isoformat(), encoding="utf-8")
 
-    def b_date(v):
-        return bytes(v.isoformat(), encoding="utf-8")
 
-    def b_time(v):
-        return bytes(v.isoformat(), encoding="utf-8")
 
-    def b_timedelta(v):
-        return bytes(str(float(v.days + (v.seconds / (24 * 60 * 60)))), "utf-8")
 
-    def b_pickle(v):
-        return pickle.dumps(v, protocol=0)
 
     bytes_functions = {
         type(None): b_none,
@@ -100,51 +69,17 @@ class DataTypes(object):
         timedelta: b_timedelta,
     }
 
-    @classmethod
-    def to_bytes(cls, v):
-        if type(v) in cls.bytes_functions:  # it's a python native type
-            f = cls.bytes_functions[type(v)]
-        elif hasattr(v, "dtype"):  # it's a numpy/c type.
-            dtype = pytype(v)
-            f = cls.bytes_functions[dtype]
-        else:
-            f = cls.b_pickle
-        return f(v)
 
-    def _none(v):
-        return None
 
-    def _bool(v):
-        return bool(v.decode("utf-8") == "True")
 
-    def _int(v):
-        return int(v.decode("utf-8"))
 
-    def _float(v):
-        return float(v.decode("utf-8"))
 
-    def _str(v):
-        return v.decode("utf-8")
 
-    def _bytes(v):
-        return v
 
-    def _datetime(v):
-        return datetime.fromisoformat(v.decode("utf-8"))
 
-    def _date(v):
-        return date.fromisoformat(v.decode("utf-8"))
 
-    def _time(v):
-        return time.fromisoformat(v.decode("utf-8"))
 
-    def _timedelta(v):
-        days = float(v)
-        seconds = 24 * 60 * 60 * (float(v) - int(float(v)))
-        return timedelta(int(days), seconds)
 
-    def _unpickle(v):
-        return pickle.loads(v)
 
     type_code_functions = {
         1: _none,
@@ -174,10 +109,6 @@ class DataTypes(object):
         11: "pickled object",
     }
 
-    @classmethod
-    def from_type_code(cls, value, code):
-        f = cls.type_code_functions[code]
-        return f(value)
 
     date_formats = {  # Note: Only recognised ISO8601 formats are accepted.
         "NNNN-NN-NN": lambda x: date(*(int(i) for i in x.split("-"))),
@@ -347,28 +278,7 @@ class DataTypes(object):
         Returns:
             float,integer,datetime: rounded value in same type as input.
         """
-        epoch = 0
-        if isinstance(value, (datetime)) and isinstance(multiple, timedelta):
-            if value.tzinfo is None:
-                epoch = cls.epoch_no_tz
-            else:
-                epoch = cls.epoch
-
-        value2 = value - epoch
-        if value2 == 0:
-            return value2
-
-        low = (value2 // multiple) * multiple
-        high = low + multiple
-        if up is True:
-            return high + epoch
-        elif up is False:
-            return low + epoch
-        else:
-            if abs((high + epoch) - value) < abs(value - (low + epoch)):
-                return high + epoch
-            else:
-                return low + epoch
+        pass
 
     @staticmethod
     def to_json(v):
@@ -380,31 +290,7 @@ class DataTypes(object):
         Returns:
             json compatible value from v
         """
-        if hasattr(v, "dtype"):
-            v = numpy_to_python(v)
-        if v is None:
-            return v
-        elif v is False:
-            # using isinstance(v, bool): won't work as False also is int of zero.
-            return str(v)
-        elif v is True:
-            return str(v)
-        elif isinstance(v, int):
-            return v
-        elif isinstance(v, str):
-            return v
-        elif isinstance(v, float):
-            return v
-        elif isinstance(v, datetime):
-            return v.isoformat()
-        elif isinstance(v, time):
-            return v.isoformat()
-        elif isinstance(v, date):
-            return v.isoformat()
-        elif isinstance(v, timedelta):
-            return f"P{v.days}DT{v.seconds + (v.microseconds / 1e6)}S"
-        else:
-            raise TypeError(f"The datatype {type(v)} is not supported.")
+        pass
 
     @staticmethod
     def from_json(v, dtype):
@@ -417,37 +303,7 @@ class DataTypes(object):
         Returns:
             python type of value v
         """
-        if v in DataTypes.nones:
-            if dtype is str and v == "":
-                return ""
-            else:
-                return None
-        if dtype is int:
-            return int(v)
-        elif dtype is str:
-            return str(v)
-        elif dtype is float:
-            return float(v)
-        elif dtype is bool:
-            if v == "False":
-                return False
-            elif v == "True":
-                return True
-            else:
-                raise ValueError(v)
-        elif dtype is date:
-            return date.fromisoformat(v)
-        elif dtype is datetime:
-            return datetime.fromisoformat(v)
-        elif dtype is time:
-            return time.fromisoformat(v)
-        elif dtype is timedelta:
-            L = v.split("DT")
-            days = int(L[0].lstrip("P"))
-            seconds = float(L[1].rstrip("S"))
-            return timedelta(days, seconds)
-        else:
-            raise TypeError(f"The datatype {str(dtype)} is not supported.")
+        pass
 
     # Order is very important!
     types = [datetime, date, time, int, bool, float, str]
@@ -460,24 +316,7 @@ class DataTypes(object):
         Returns:
             dict: {key: type, value: probability}
         """
-        d = defaultdict(int)
-        probability = Rank(DataTypes.types[:])
-
-        for value in values:
-            if hasattr(value, "dtype"):
-                value = numpy_to_python(value)
-
-            for dtype in probability:
-                try:
-                    _ = DataTypes.infer(value, dtype)
-                    d[dtype] += 1
-                    probability.match(dtype)
-                    break
-                except (ValueError, TypeError):
-                    pass
-        if not d:
-            d[str] = len(values)
-        return {k: round(v / len(values), 3) for k, v in d.items()}
+        pass
 
     @staticmethod
     def guess(*values):
@@ -487,213 +326,16 @@ class DataTypes(object):
         Returns:
             list: list of native python values
         """
-        probability = Rank(*DataTypes.types[:])
-        matches = [None for _ in values[0]]
+        pass
 
-        for ix, value in enumerate(values[0]):
-            if hasattr(value, "dtype"):
-                value = numpy_to_python(value)
-            for dtype in probability:
-                try:
-                    matches[ix] = DataTypes.infer(value, dtype)
-                    probability.match(dtype)
-                    break
-                except (ValueError, TypeError):
-                    pass
-        return matches
 
-    @classmethod
-    def infer(cls, v, dtype):
-        if isinstance(v, str) and dtype == str:
-            # we got a string, we're trying to infer it to string, we shouldn't check for None-ness
-            return v
 
-        if v in DataTypes.nones:
-            return None
 
-        if dtype not in matched_types:
-            raise TypeError(f"The datatype {str(dtype)} is not supported.")
 
-        return matched_types[dtype](v)
 
-    @classmethod
-    def _infer_bool(cls, value):
-        if isinstance(value, bool):
-            return value
-        elif isinstance(value, int):
-            raise ValueError("it's an integer.")
-        elif isinstance(value, float):
-            raise ValueError("it's a float.")
-        elif isinstance(value, str):
-            if value.lower() == "true":
-                return True
-            elif value.lower() == "false":
-                return False
-            else:
-                raise ValueError()
-        else:
-            raise ValueError()
 
-    @classmethod
-    def _infer_int(cls, value):
-        if isinstance(value, bool):
-            raise ValueError("it's a boolean")
-        if isinstance(value, int):
-            return value
-        elif isinstance(value, float):
-            if int(value) == value:
-                return int(value)
-            raise ValueError("it's a float")
-        elif isinstance(value, str):
-            value = value.replace('"', "")  # "1,234" --> 1,234
-            value = value.replace(" ", "")  # 1 234 --> 1234
-            value = value.replace(",", "")  # 1,234 --> 1234
-            value_set = set(value)
-            if value_set - DataTypes.integers:  # set comparison.
-                raise ValueError
-            try:
-                return int(value)
-            except Exception:
-                raise ValueError(f"{value} is not an integer")
-        else:
-            raise ValueError()
 
-    @classmethod
-    def _infer_float(cls, value):
-        if isinstance(value, int):
-            return float(value)
-        if isinstance(value, float):
-            return value
-        elif isinstance(value, str):
-            value = value.replace('"', "")
-            dot_index, comma_index = value.find("."), value.find(",")
-            if dot_index == comma_index == -1:
-                pass  # there are no dots or commas.
-            elif 0 < dot_index < comma_index:  # 1.234,567
-                value = value.replace(".", "")  # --> 1234,567
-                value = value.replace(",", ".")  # --> 1234.567
-            elif dot_index > comma_index > 0:  # 1,234.678
-                value = value.replace(",", "")
 
-            elif comma_index and dot_index == -1:
-                value = value.replace(",", ".")
-            else:
-                pass
-
-            value_set = set(value)
-
-            if not value_set.issubset(DataTypes.decimals):
-                raise TypeError()
-
-            # if it's a string, do also
-            # check that reverse conversion is valid,
-            # otherwise we have loss of precision. F.ex.:
-            # int(0.532) --> 0
-            try:
-                float_value = float(value)
-            except Exception:
-                raise ValueError(f"{value} is not a float.")
-            if value_set.intersection("Ee"):  # it's scientific notation.
-                v = value.lower()
-                if v.count("e") != 1:
-                    raise ValueError("only 1 e in scientific notation")
-
-                e = v.find("e")
-                v_float_part = float(v[:e])
-                v_exponent = int(v[e + 1 :])
-                return float(f"{v_float_part}e{v_exponent}")
-
-            elif "." in str(float_value) and "." not in value_set:
-                # when traversing through Datatype.types,
-                # integer is presumed to have failed for the column,
-                # so we ignore this and turn it into a float...
-                reconstructed_input = str(int(float_value))
-
-            elif "." in value:
-                precision = len(value) - value.index(".") - 1
-                formatter = "{0:." + str(precision) + "f}"
-                reconstructed_input = formatter.format(float_value)
-
-            else:
-                reconstructed_input = str(float_value)
-
-            if value.lower() != reconstructed_input:
-                raise ValueError()
-
-            return float_value
-        else:
-            raise ValueError()
-
-    @classmethod
-    def _infer_date(cls, value):
-        if isinstance(value, datetime):
-            return date(value.year, value.month, value.day)
-        elif isinstance(value, date):
-            return value
-        elif isinstance(value, str):
-            try:
-                return date.fromisoformat(value)
-            except ValueError:
-                pattern = "".join(["N" if n in DataTypes.digits else n for n in value])
-                f = DataTypes.date_formats.get(pattern, None)
-                if f:
-                    return f(value)
-                else:
-                    raise ValueError()
-        else:
-            raise ValueError()
-
-    @classmethod
-    def _infer_datetime(cls, value):
-        if isinstance(value, datetime):
-            return value
-        elif isinstance(value, date):
-            return datetime(value.year, value.month, value.day)
-        elif isinstance(value, str):
-            try:
-                return datetime.fromisoformat(value)
-            except ValueError:
-                if "." in value:
-                    dot = value.find(".", 11)  # 11 = len("1999.12.12")
-                elif "," in value:
-                    dot = value.find(",", 11)
-                else:
-                    dot = len(value)
-                # fmt:off
-                pattern = "".join(["N" if n in DataTypes.digits else n for n in value[:dot]])
-                # fmt:on
-                f = DataTypes.datetime_formats.get(pattern, None)
-                if f:
-                    return f(value)
-                else:
-                    raise ValueError()
-        else:
-            raise ValueError()
-
-    @classmethod
-    def _infer_time(cls, value):
-        if isinstance(value, time):
-            return value
-        elif isinstance(value, str) and ":" in value:
-            # beware time.fromisoformat reads "20" as "20:00:00", despite that it is more likely to be an integer.
-            return time.fromisoformat(value)
-        else:
-            raise ValueError()
-
-    @classmethod
-    def _infer_str(cls, value):
-        if isinstance(value, str):
-            return value
-        else:
-            return str(value)
-
-    @classmethod
-    def _infer_none(cls, value):
-        if value is None:
-            return None
-        if isinstance(value, str) and value == str(None):
-            return None
-        raise ValueError()
 
 
 def numpy_to_python(obj: Any) -> Any:

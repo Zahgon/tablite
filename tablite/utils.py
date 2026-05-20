@@ -18,8 +18,6 @@ letters = string.ascii_lowercase + string.digits
 NoneType = type(None)
 
 
-def generate_random_string(len):
-    return "".join(random.choice(letters) for i in range(len))
 
 
 def type_check(var, kind):
@@ -230,159 +228,20 @@ def summary_statistics(values, counts):
     return result
 
 
-def _numeric_statistics_summary(v, c):
-    VC = [[v, c] for v, c in zip(v, c)]
-    VC.sort()
-
-    total_val, mode, median, total_cnt = 0, None, None, sum(c)
-
-    max_cnt, cnt_n = -1, 0
-    mn, cstd = 0, 0.0
-    iqr25 = total_cnt * 1 / 4
-    iqr50 = total_cnt * 1 / 2
-    iqr75 = total_cnt * 3 / 4
-    iqr_low, iqr_high = 0, 0
-    vx_0 = None
-    vmin, vmax = VC[0][0], VC[-1][0]
-
-    for vx, cx in VC:
-        cnt_0 = cnt_n
-        cnt_n += cx
-
-        if cnt_0 < iqr25 < cnt_n:  # iqr 25%
-            iqr_low = vx
-        elif cnt_0 == iqr25:
-            _, delta = divmod(1 * (total_cnt - 1), 4)
-            iqr_low = (vx_0 * (4 - delta) + vx * delta) / 4
-
-        # median calculations
-        if cnt_n - cx < iqr50 < cnt_n:
-            median = vx
-        elif cnt_0 == iqr50:
-            _, delta = divmod(2 * (total_cnt - 1), 4)
-            median = (vx_0 * (4 - delta) + vx * delta) / 4
-
-        if cnt_0 < iqr75 < cnt_n:  # iqr 75%
-            iqr_high = vx
-        elif cnt_0 == iqr75:
-            _, delta = divmod(3 * (total_cnt - 1), 4)
-            iqr_high = (vx_0 * (4 - delta) + vx * delta) / 4
-
-        # stdev calulations
-        dt = cx * (vx - mn)  # dt = value - self.mean
-        mn += dt / cnt_n  # self.mean += dt / self.count
-        cstd += dt * (vx - mn)  # self.c += dt * (value - self.mean)
-
-        # mode calculations
-        if cx > max_cnt:
-            mode, max_cnt = vx, cx
-
-        total_val += vx * cx
-        vx_0 = vx
-
-    var = cstd / (cnt_n - 1) if cnt_n > 1 else 0
-    stdev = var ** (1 / 2) if cnt_n > 1 else 0
-
-    d = {
-        "min": vmin,
-        "max": vmax,
-        "mean": total_val / (total_cnt if total_cnt >= 1 else None),
-        "median": median,
-        "stdev": stdev,
-        "mode": mode,
-        "iqr_low": iqr_low,
-        "iqr_high": iqr_high,
-        "iqr": iqr_high - iqr_low,
-        "sum": total_val,
-    }
-    return d
 
 
-def _none_type_summary(v, c):
-    return {k: "n/a" for k in required_keys}
 
 
-def _boolean_statistics_summary(v, c):
-    v = [int(vx) for vx in v]
-    d = _numeric_statistics_summary(v, c)
-    for k, v in d.items():
-        if k in {"mean", "stdev", "sum", "iqr_low", "iqr_high", "iqr"}:
-            continue
-        elif v == 1:
-            d[k] = True
-        elif v == 0:
-            d[k] = False
-        else:
-            pass
-    return d
 
 
-def _timedelta_statistics_summary(v, c):
-    v = [vx.days + v.seconds / (24 * 60 * 60) for vx in v]
-    d = _numeric_statistics_summary(v, c)
-    for k in d.keys():
-        d[k] = timedelta(d[k])
-    return d
 
 
-def _datetime_statistics_summary(v, c):
-    v = [vx.timestamp() for vx in v]
-    d = _numeric_statistics_summary(v, c)
-    for k in d.keys():
-        if k in {"stdev", "iqr", "sum"}:
-            d[k] = f"{d[k]/(24*60*60)} days"
-        else:
-            d[k] = datetime.fromtimestamp(d[k])
-    return d
 
 
-def _time_statistics_summary(v, c):
-    v = [sum((t.hour * 60 * 60, t.minute * 60, t.second, t.microsecond / 1e6)) for t in v]
-    d = _numeric_statistics_summary(v, c)
-    for k in d.keys():
-        if k in {"min", "max", "mean", "median", "mode"}:
-            timestamp = d[k]
-            hours = int(timestamp // (60 * 60))
-            timestamp -= hours * 60 * 60
-            minutes = int(timestamp // 60)
-            timestamp -= minutes * 60
-            seconds = int(timestamp)
-            microseconds = int(1e6 * (timestamp-seconds))
-
-            d[k] = time(hours, minutes, seconds, microseconds)
-        elif k in {"stdev", "iqr", "sum"}:
-            d[k] = f"{d[k]} seconds"
-        else:
-            pass
-    return d
 
 
-def _date_statistics_summary(v, c):
-    v = [datetime(d.year, d.month, d.day, 0, 0, 0).timestamp() for d in v]
-    d = _numeric_statistics_summary(v, c)
-    for k in d.keys():
-        if k in {"min", "max", "mean", "median", "mode"}:
-            d[k] = date(*datetime.fromtimestamp(d[k]).timetuple()[:3])
-        elif k in {"stdev", "iqr", "sum"}:
-            d[k] = f"{d[k]/(24*60*60)} days"
-        else:
-            pass
-    return d
 
 
-def _string_statistics_summary(v, c):
-    vx = [len(x) for x in v]
-    d = _numeric_statistics_summary(vx, c)
-
-    vc_sorted = sorted(zip(v, c), key=lambda t: t[1], reverse=True)
-    mode, _ = vc_sorted[0]
-
-    for k in d.keys():
-        d[k] = f"{d[k]} characters"
-
-    d["mode"] = mode
-
-    return d
 
 
 summary_methods = {
@@ -438,17 +297,6 @@ def calc_true_dims(sheet):
 
     regex = re.compile("\d+")
 
-    def handleStartElement(name, attrs):
-        nonlocal max_col, max_row
-
-        if name == "c":
-            last_index = attrs["r"]
-            idx, _ = next(regex.finditer(last_index)).span()
-            letters, digits = last_index[0:idx], int(last_index[idx:])
-
-            col_idx, row_idx = calc_col_count(letters), digits
-
-            max_col, max_row = max(max_col, col_idx), max(max_row, row_idx)
 
     parser = expat.ParserCreate()
     parser.buffer_text = True
@@ -480,27 +328,8 @@ def load_numpy(path):
     return np.load(path, allow_pickle=True, fix_imports=False)
 
 
-def select_type_name(dtypes: dict):
-    dtypes = [t for t in dtypes.items() if t[0] != NoneType]
-
-    if len(dtypes) == 0:
-        return "empty"
-
-    (best_type, _), *_ = sorted(dtypes, key=lambda t: t[1], reverse=True)
-
-    return best_type.__name__
 
 
-def get_predominant_types(table, all_dtypes=None):
-    if all_dtypes is None:
-        all_dtypes = table.types()
-
-    dtypes = {
-        k: select_type_name(v)
-        for k, v in all_dtypes.items()
-    }
-
-    return dtypes
 
 
 def py_to_nim_encoding(encoding: str) -> str:

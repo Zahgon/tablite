@@ -16,48 +16,14 @@ def to_sql(table, name):
     args:
         name (str): name of SQL table.
     """
-    sub_cls_check(table, BaseTable)
-    type_check(name, str)
-
-    prefix = name
-    name = "T1"
-    create_table = """CREATE TABLE {} ({})"""
-    columns = []
-    for name, col in table.columns.items():
-        dtype = col.types()
-        if len(dtype) == 1:
-            dtype, _ = dtype.popitem()
-            if dtype is int:
-                dtype = "INTEGER"
-            elif dtype is float:
-                dtype = "REAL"
-            else:
-                dtype = "TEXT"
-        else:
-            dtype = "TEXT"
-        definition = f"{name} {dtype}"
-        columns.append(definition)
-
-    create_table = create_table.format(prefix, ", ".join(columns))
-
-    # return create_table
-    row_inserts = []
-    for row in table.rows:
-        row_inserts.append(str(tuple([i if i is not None else "NULL" for i in row])))
-    row_inserts = f"INSERT INTO {prefix} VALUES " + ",".join(row_inserts)
-    return "begin; {}; {}; commit;".format(create_table, row_inserts)
+    pass
 
 
 def to_pandas(table):
     """
     returns pandas.DataFrame
     """
-    sub_cls_check(table, BaseTable)
-    try:
-        return pd.DataFrame(table.to_dict())  # noqa
-    except ImportError:
-        import pandas as pd  # noqa
-    return pd.DataFrame(table.to_dict())  # noqa
+    pass
 
 
 def to_hdf5(table, path):
@@ -85,24 +51,7 @@ def to_hdf5(table, path):
     | 1 |  1|    1|  1.1| 1000|    1| True|2023-06-09 09:12:06|2023-06-09 00:00:00|09:12:06|2 days, 0:06:40|嗨  | 100000000000000000000000| -inf|-11|
     +===+===+=====+=====+=====+=====+=====+===================+===================+========+===============+===+=========================+=====+===+
     """
-    # fmt: in
-    import h5py
-
-    sub_cls_check(table, BaseTable)
-    type_check(path, Path)
-
-    total = f"{len(table.columns) * len(table):,}"  # noqa
-    print(f"writing {total} records to {path}", end="")
-
-    with h5py.File(path, "w") as f:
-        n = 0
-        for name, col in table.items():
-            try:
-                f.create_dataset(name, data=col[:])  # stored in hdf5 as '/name'
-            except TypeError:
-                f.create_dataset(name, data=[str(i) for i in col[:]])  # stored in hdf5 as '/name'
-            n += 1
-    print("... done")
+    pass
 
 
 def excel_writer(table, path):
@@ -116,38 +65,11 @@ def excel_writer(table, path):
     See pyexcel for more details:
     http://docs.pyexcel.org/
     """
-    import pyexcel
-
-    sub_cls_check(table, BaseTable)
-    type_check(path, Path)
-
-    def gen(table):  # local helper
-        yield table.columns
-        for row in table.rows:
-            yield row
-
-    data = list(gen(table))
-    if path.suffix in [".xls", ".ods"]:
-        data = [
-            [str(v) if (isinstance(v, (int, float)) and abs(v) > 2**32 - 1) else DataTypes.to_json(v) for v in row]
-            for row in data
-        ]
-
-    pyexcel.save_as(array=data, dest_file_name=str(path))
+    pass
 
 
-def to_json(table, *args, **kwargs):
-    import json
-
-    sub_cls_check(table, BaseTable)
-    return json.dumps(table.as_json_serializable())
 
 
-def path_suffix_check(path, kind):
-    if not path.suffix == kind:
-        raise ValueError(f"Suffix mismatch: Expected {kind}, got {path.suffix} in {path.name}")
-    if not path.parent.exists():
-        raise FileNotFoundError(f"directory {path.parent} not found.")
 
 
 def text_writer(table, path, tqdm=_tqdm):
@@ -163,46 +85,10 @@ def text_writer(table, path, tqdm=_tqdm):
     that may contain the delimiter would lead to an assymmetric format,
     the safer guess is to text escape all strings.
     """
-    sub_cls_check(table, BaseTable)
-    type_check(path, Path)
-
-    def txt(value):  # helper for text writer
-        if value is None:
-            return ""  # A column with 1,None,2 must be "1,,2".
-        elif isinstance(value, str):
-            # if not (value.startswith('"') and value.endswith('"')):
-            #     return f'"{value}"'  # this must be escape: "the quick fox, jumped over the comma"
-            # else:
-            return value  # this would for example be an empty string: ""
-        else:
-            return str(DataTypes.to_json(value))  # this handles datetimes, timedelta, etc.
-
-    delimiters = {".csv": ",", ".tsv": "\t", ".txt": "|"}
-    delimiter = delimiters.get(path.suffix)
-
-    with path.open("w", encoding="utf-8") as fo:
-        w = csv.writer(fo, delimiter=delimiter)
-        w.writerow(c for c in table.columns)
-        for row in tqdm(table.rows, total=len(table), disable=Config.TQDM_DISABLE):
-            w.writerow(txt(c) for c in row)
+    pass
 
 
-def sql_writer(table, path):
-    type_check(table, BaseTable)
-    type_check(path, Path)
-    with path.open("w", encoding="utf-8") as fo:
-        fo.write(to_sql(table))
 
 
-def json_writer(table, path):
-    type_check(table, BaseTable)
-    type_check(path, Path)
-    with path.open("w") as fo:
-        fo.write(to_json(table))
 
 
-def to_html(table, path):
-    type_check(table, BaseTable)
-    type_check(path, Path)
-    with path.open("w", encoding="utf-8") as fo:
-        fo.write(table._repr_html_(slice(0, len(table))))

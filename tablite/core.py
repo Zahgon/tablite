@@ -147,75 +147,7 @@ class Table(BaseTable):
             str: list of characters such as }])
 
         """
-        if isinstance(path, str):
-            path = Path(path)
-        type_check(path, Path)
-
-        if not path.exists():
-            raise FileNotFoundError(f"file not found: {path}")
-
-        if not isinstance(start, int) or not 0 <= start <= sys.maxsize:
-            raise ValueError(f"start {start} not in range(0,{sys.maxsize})")
-
-        if not isinstance(limit, int) or not 0 < limit <= sys.maxsize:
-            raise ValueError(f"limit {limit} not in range(0,{sys.maxsize})")
-
-        if not isinstance(first_row_has_headers, bool):
-            raise TypeError("first_row_has_headers is not bool")
-
-        import_as = path.suffix
-        if import_as.startswith("."):
-            import_as = import_as[1:]
-
-        reader = import_utils.file_readers.get(import_as, None)
-        if reader is None:
-            raise ValueError(f"{import_as} is not in supported format: {import_utils.valid_readers}")
-
-        additional_configs = {"tqdm": tqdm}
-        if reader == import_utils.text_reader:
-            # here we inject tqdm, if tqdm is not provided, use generic iterator
-            # fmt:off
-            config = (path, columns, first_row_has_headers, header_row_index, encoding, start, limit, newline,
-                      guess_datatypes, text_qualifier, strip_leading_and_tailing_whitespace, skip_empty,
-                      delimiter, text_escape_openings, text_escape_closures)
-            # fmt:on
-
-        elif reader == import_utils.from_html:
-            config = (path,)
-        elif reader == import_utils.from_hdf5:
-            config = (path,)
-
-        elif reader == import_utils.excel_reader:
-            # config = path, first_row_has_headers, sheet, columns, start, limit
-            config = (
-                path,
-                first_row_has_headers,
-                header_row_index,
-                sheet,
-                columns,
-                skip_empty,
-                start,
-                limit,
-            )  # if file length changes - re-import.
-
-        if reader == import_utils.ods_reader:
-            # path, first_row_has_headers=True, sheet=None, columns=None, start=0, limit=sys.maxsize,
-            config = (
-                str(path),
-                first_row_has_headers,
-                header_row_index,
-                sheet,
-                columns,
-                skip_empty,
-                start,
-                limit,
-            )  # if file length changes - re-import.
-
-        # At this point the import config seems valid.
-        # Now we check if the file already has been imported.
-
-        # publish the settings
-        return reader(cls, *config, **additional_configs)
+        pass
 
     @classmethod
     def from_pandas(cls, df):
@@ -245,87 +177,81 @@ class Table(BaseTable):
             +===+===+===+
         ```
         """
-        return import_utils.from_pandas(cls, df)
+        pass
 
     @classmethod
     def from_hdf5(cls, path):
         """
         imports an exported hdf5 table.
         """
-        return import_utils.from_hdf5(cls, path)
+        pass
 
     @classmethod
     def from_json(cls, jsn):
         """
         Imports table exported using .to_json
         """
-        return import_utils.from_json(cls, jsn)
+        pass
 
     def to_hdf5(self, path):
         """
         creates a copy of the table as hdf5
         """
-        export_utils.to_hdf5(self, path)
+        pass
 
     def to_pandas(self):
         """
         returns pandas.DataFrame
         """
-        return export_utils.to_pandas(self)
+        pass
 
     def to_sql(self, name):
         """
         generates ANSI-92 compliant SQL.
         """
-        return export_utils.to_sql(self, name)  # remove after update to test suite.
+        pass
 
     def to_json(self):
         """
         returns JSON
         """
-        return export_utils.to_json(self)
+        pass
 
     def to_xlsx(self, path):
         """
         exports table to path
         """
-        export_utils.path_suffix_check(path, ".xlsx")
-        export_utils.excel_writer(self, path)
+        pass
 
     def to_ods(self, path):
         """
         exports table to path
         """
-        export_utils.path_suffix_check(path, ".ods")
-        export_utils.excel_writer(self, path)
+        pass
 
     def to_csv(self, path):
         """
         exports table to path
         """
-        export_utils.path_suffix_check(path, ".csv")
-        export_utils.text_writer(self, path)
+        pass
 
     def to_tsv(self, path):
         """
         exports table to path
         """
-        export_utils.path_suffix_check(path, ".tsv")
-        export_utils.text_writer(self, path)
+        pass
 
     def to_text(self, path):
         """
         exports table to path
         """
-        export_utils.path_suffix_check(path, ".txt")
-        export_utils.text_writer(self, path)
+        pass
 
     def to_html(self, path):
         """
         exports table to path
         """
-        export_utils.path_suffix_check(path, ".html")
-        export_utils.to_html(self, path)
+        pass
 
     def expression(self, expression):
         """
@@ -338,7 +264,7 @@ class Table(BaseTable):
             def _f(A,B,C,D):
                 return all((A==B, C!=4, 200<D))
         """
-        return redux._filter_using_expression(self, expression)
+        pass
 
     def filter(self, expressions, filter_type="all", tqdm=_tqdm):
         """
@@ -361,7 +287,7 @@ class Table(BaseTable):
 
         filter_type: 'all' or 'any'
         """
-        return redux.filter(self, expressions, filter_type, tqdm)
+        pass
 
     def sort_index(self, sort_mode="excel", tqdm=_tqdm, pbar=None, **kwargs):
         """
@@ -398,10 +324,7 @@ class Table(BaseTable):
         args: (optional) column_names
         if no args, all columns are used.
         """
-        if not args:
-            args = self.columns
-        index = self.unique_index(*args)
-        return self.reindex(index)
+        pass
 
     def sort(self, mapping, sort_mode="excel", tqdm=_tqdm, pbar: _tqdm = None):
         """Perform multi-pass sorting with precedence given order of column names.
@@ -429,21 +352,21 @@ class Table(BaseTable):
         Returns:
             Table.
         """
-        return sortation.sort(self, mapping, sort_mode, tqdm=tqdm, pbar=pbar)
+        pass
 
     def is_sorted(self, mapping, sort_mode="excel"):
         """Performs multi-pass sorting check with precedence given order of column names.
         **kwargs: optional: sort criteria. See Table.sort()
         :return bool
         """
-        return sortation.is_sorted(self, mapping, sort_mode)
+        pass
 
     def any(self, **kwargs):
         """
         returns Table for rows where ANY kwargs match
         :param kwargs: dictionary with headers and values / boolean callable
         """
-        return redux.filter_any(self, **kwargs)
+        pass
 
     def all(self, **kwargs):
         """
@@ -478,7 +401,7 @@ class Table(BaseTable):
 
 
         """
-        return redux.filter_all(self, **kwargs)
+        pass
 
     def drop(self, *args):
         """
@@ -493,9 +416,7 @@ class Table(BaseTable):
         ([2,3], [2,3])
 
         """
-        if not args:
-            raise ValueError("What to drop? None? np.nan? ")
-        return redux.drop(self, *args)
+        pass
 
     def replace(self, mapping, columns=None, tqdm=_tqdm, pbar=None):
         """replaces all mapped keys with values from named columns
@@ -655,7 +576,7 @@ class Table(BaseTable):
         +===+===+========+=====+=====+=====+
         ```
         """
-        return pivots.pivot(self, rows, columns, functions, values_as_rows, tqdm=tqdm, pbar=pbar)
+        pass
 
     def merge(self, left, right, new, criteria):
         """ takes from LEFT where criteria is True else RIGHT.
@@ -764,7 +685,7 @@ class Table(BaseTable):
         )
         ```
         """
-        return joins.left_join(self, other, left_keys, right_keys, left_columns, right_columns, merge_keys=merge_keys, tqdm=tqdm, pbar=pbar)
+        pass
 
     def inner_join(self, other, left_keys, right_keys, left_columns=None, right_columns=None, merge_keys=False, tqdm=_tqdm, pbar=None):
         """
@@ -782,7 +703,7 @@ class Table(BaseTable):
             )
         ```
         """
-        return joins.inner_join(self, other, left_keys, right_keys, left_columns, right_columns, merge_keys=merge_keys, tqdm=tqdm, pbar=pbar)
+        pass
 
     def outer_join(self, other, left_keys, right_keys, left_columns=None, right_columns=None, merge_keys=False, tqdm=_tqdm, pbar=None):
         """
@@ -800,7 +721,7 @@ class Table(BaseTable):
             )
         ```
         """
-        return joins.outer_join(self, other, left_keys, right_keys, left_columns, right_columns, merge_keys=merge_keys, tqdm=tqdm, pbar=pbar)
+        pass
 
     def cross_join(self, other, left_keys, right_keys, left_columns=None, right_columns=None, merge_keys=False, tqdm=_tqdm, pbar=None):
         """
@@ -808,7 +729,7 @@ class Table(BaseTable):
         In other words, it will produce rows which combine each row from the first table
         with each row from the second table
         """
-        return joins.cross_join(self, other, left_keys, right_keys, left_columns, right_columns, merge_keys=merge_keys, tqdm=tqdm, pbar=pbar)
+        pass
 
     def lookup(self, other, *criteria, all=True, tqdm=_tqdm):
         """function for looking up values in `other` according to criteria in ascending order.
@@ -903,8 +824,6 @@ class Table(BaseTable):
         """
         return imputation.imputation(self, targets, missing, method, sources, tqdm=tqdm)
 
-    def transpose(self, tqdm=_tqdm):
-        return pivots.transpose(self, tqdm)
 
     def pivot_transpose(self, columns, keep=None, column_name="transpose", value_name="value", tqdm=_tqdm):
         """Transpose a selection of columns to rows.
@@ -938,7 +857,7 @@ class Table(BaseTable):
         |1244| 2445| 4456| mon      |     7|
         ```
         """
-        return pivots.pivot_transpose(self, columns, keep, column_name, value_name, tqdm=tqdm)
+        pass
 
     def diff(self, other, columns=None):
         """compares table self with table other

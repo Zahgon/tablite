@@ -23,38 +23,20 @@ _excel_date_epoc = date(1900, 1, 1)
 _excel_datetime_epoc = datetime(1900, 1, 1)
 
 
-def _excel_none(value):
-    return float("inf")
 
 
-def _excel_float(value):
-    return value
 
 
-def _excel_int(value):
-    return value
 
 
-def _excel_time(value):
-    return (value.hour * 60 * 60 + value.minute * 60 + value.second + (value.microsecond / 1e6)) / (24 * 60 * 60)
 
 
-def _excel_date(value):
-    dt = value - _excel_date_epoc
-    return dt.days + (dt.seconds / (24 * 60 * 60))
 
 
-def _excel_datetime(value):
-    dt = value - _excel_datetime_epoc
-    return dt.days + (dt.seconds / (24 * 60 * 60))
 
 
-def _excel_timedelta(value):
-    return value.days + (value.seconds / (24 * 60 * 60))
 
 
-def _excel_bool(value):
-    return int(value)
 
 
 _excel_value_function = {
@@ -86,38 +68,20 @@ _unix_date_epoc = date(1970, 1, 1)
 _unix_datetime_epoc = datetime(1970, 1, 1)
 
 
-def _unix_none(value):
-    return -float("inf")
 
 
-def _unix_float(value):
-    return value
 
 
-def _unix_int(value):
-    return value
 
 
-def _unix_time(value):
-    return (value.hour * 60 * 60 + value.minute * 60 + value.second + (value.microsecond / 1e6)) / (24 * 60 * 60)
 
 
-def _unix_date(value):
-    dt = value - _unix_date_epoc
-    return dt.days + (dt.seconds / (24 * 60 * 60))
 
 
-def _unix_datetime(value):
-    dt = value - _unix_datetime_epoc
-    return dt.days + (dt.seconds / (24 * 60 * 60))
 
 
-def _unix_timedelta(value):
-    return value.days + (value.seconds / (24 * 60 * 60))
 
 
-def _unix_bool(value):
-    return int(value)
 
 
 _unix_value_function = {
@@ -258,10 +222,7 @@ def rank(values, reverse, mode):
     mode: as 'text', as 'numeric' or as 'excel'
     return: dict: d[value] = rank
     """
-    if mode not in modes:
-        raise ValueError(f"{mode} not in list of modes: {list(modes)}")
-    f = modes.get(mode)
-    return f(values, reverse)
+    pass
 
 
 class HashDict(dict):

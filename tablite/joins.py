@@ -110,25 +110,9 @@ def join(
              tqdm=tqdm, pbar=pbar)
 
 # fmt:off
-def inner_join(T: BaseTable, other: BaseTable, left_keys: List[str], right_keys: List[str], 
-              left_columns: Union[List[str], None], right_columns: Union[List[str], None],
-              merge_keys: bool = False, tqdm=_tqdm, pbar=None):
-    return join(T, other, left_keys, right_keys, left_columns, right_columns, kind="inner", merge_keys=merge_keys, tqdm=tqdm,pbar=pbar)
 
-def left_join(T: BaseTable, other: BaseTable, left_keys: List[str], right_keys: List[str], 
-              left_columns: Union[List[str], None], right_columns: Union[List[str], None],
-              merge_keys: bool = False, tqdm=_tqdm, pbar=None):
-    return join(T, other, left_keys, right_keys, left_columns, right_columns, kind="left", merge_keys=merge_keys, tqdm=tqdm,pbar=pbar)
 
-def outer_join(T: BaseTable, other: BaseTable, left_keys: List[str], right_keys: List[str], 
-              left_columns: Union[List[str], None], right_columns: Union[List[str], None],
-              merge_keys: bool = False, tqdm=_tqdm, pbar=None):
-    return join(T, other, left_keys, right_keys, left_columns, right_columns, kind="outer", merge_keys=merge_keys, tqdm=tqdm,pbar=pbar)
 
-def cross_join(T: BaseTable, other: BaseTable, left_keys: List[str], right_keys: List[str], 
-              left_columns: Union[List[str], None], right_columns: Union[List[str], None],
-              merge_keys: bool = False, tqdm=_tqdm, pbar=None):
-    return join(T, other, left_keys, right_keys, left_columns, right_columns, kind="cross", merge_keys=merge_keys, tqdm=tqdm,pbar=pbar)
 # fmt: on
 
 
@@ -198,18 +182,7 @@ def _sp_left_mapping(T, other, left_keys, right_keys, tqdm, pbar):
     Returns: 
         Table: joined table
     """
-    left_index = T.index(*left_keys)
-    right_index = other.index(*right_keys)
-    _left, _right = [], []
-    for left_key, left_ixs in left_index.items():
-        right_ixs = right_index.get(left_key, (-1,))
-        for left_ix in left_ixs:
-            for right_ix in right_ixs:
-                _left.append(left_ix)
-                _right.append(right_ix)
-
-    _left, _right = np.array(_left, dtype=int), np.array(_right, dtype=int)
-    return _left,_right
+    pass
 
 
 def _sp_inner_mapping(T, other, left_keys, right_keys, tqdm, pbar):
@@ -224,20 +197,7 @@ def _sp_inner_mapping(T, other, left_keys, right_keys, tqdm, pbar):
         Table: joined table
 
     """
-    left_index = T.index(*left_keys)
-    right_index = other.index(*right_keys)
-    _left, _right = [], []
-    for left_key, left_ixs in left_index.items():
-        right_ixs = right_index.get(left_key, None)
-        if right_ixs is None:
-            continue
-        for left_ix in left_ixs:
-            for right_ix in right_ixs:
-                _left.append(left_ix)
-                _right.append(right_ix)
-
-    _left, _right = np.array(_left, dtype=int), np.array(_right, dtype=int)
-    return _left, _right
+    pass
 
 
 def _sp_outer_mapping(T, other, left_keys, right_keys, tqdm, pbar):
@@ -252,24 +212,7 @@ def _sp_outer_mapping(T, other, left_keys, right_keys, tqdm, pbar):
         Table: joined table
 
     """
-    left_index = T.index(*left_keys)
-    right_index = other.index(*right_keys)
-    _left, _right, _right_unused = [], [], set(right_index.keys())
-    for left_key, left_ixs in left_index.items():
-        right_ixs = right_index.get(left_key, (-1,))
-        for left_ix in left_ixs:
-            for right_ix in right_ixs:
-                _left.append(left_ix)
-                _right.append(right_ix)
-                _right_unused.discard(left_key)
-
-    for right_key in _right_unused:
-        for right_ix in right_index[right_key]:
-            _left.append(-1)
-            _right.append(right_ix)
-
-    _left, _right = np.array(_left, dtype=int), np.array(_right, dtype=int)
-    return _left, _right
+    pass
 
 
 def _sp_cross_mapping(T, other, left_keys, right_keys, tqdm, pbar):
@@ -284,9 +227,7 @@ def _sp_cross_mapping(T, other, left_keys, right_keys, tqdm, pbar):
         Table: joined table
 
     """
-    _left, _right = zip(*product(range(len(T)), range(len(other))))
-    _left, _right = np.array(_left, dtype=int), np.array(_right, dtype=int)
-    return _left,_right
+    pass
 
 
 _sp_mapping_methods = {
@@ -328,12 +269,7 @@ def _mp_where(
 
     :returns: None
     """
-    Constr = type(T)
-    criteria = mapping[field][start:end]
-    left_values = T[left][start:end]
-    right_values = T[right][start:end]
-    new_values = np.where(criteria, left_values, right_values)
-    return Constr({new: new_values}, _path=path)
+    pass
 
 def _mp_reindex_page(
     T: BaseTable,
@@ -358,25 +294,7 @@ def _mp_reindex_page(
     Returns:
         Table: table initiated in the main process' working directory
     """
-    part = slice(start, end)
-    ix_arr = mapping[index][part]
-    if len(ix_arr) == 0 or ix_arr[0]==start and ix_arr[-1] == end-1 and np.all(ix_arr == np.arange(start,end)):  
-        array = T[column_name][part]
-    else:
-        array = T[column_name].get_by_indices(ix_arr)
-        # in the array, the index of -1 will be wrong.
-        # so if there is any -1 in the indices, they will
-        # have to be replaced with Nones
-        mask = ix_arr == -1
-        if np.any(mask):
-            nones = np.full(ix_arr.shape, fill_value=None)
-            array = np.where(mask, nones, array)
-
-
-    Constr = type(T)
-    remapped_T = Constr({column_name: array}, _path=path)
-
-    return remapped_T
+    pass
 
 
 def _gets(task, *args):

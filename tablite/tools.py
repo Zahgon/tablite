@@ -33,4 +33,4 @@ def head(path, linecount=5, delimiter=None):
     """
     Gets the head of any supported file format.
     """
-    return get_headers(path, linecount=linecount, delimiter=delimiter)
+    pass

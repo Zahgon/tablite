@@ -14,15 +14,7 @@ ENCODING_GUESS_BYTES = 10000
 
 def split_by_sequence(text, sequence):
     """helper to split text according to a split sequence."""
-    chunks = tuple()
-    for element in sequence:
-        idx = text.find(element)
-        if idx < 0:
-            raise ValueError(f"'{element}' not in row")
-        chunk, text = text[:idx], text[len(element) + idx :]
-        chunks += (chunk,)
-    chunks += (text,)  # the remaining text.
-    return chunks
+    pass
 
 
 class TextEscape(object):
@@ -88,28 +80,8 @@ class TextEscape(object):
     def __call__(self, s):
         return self.c(s)
 
-    def _call_1(self, s):  # just looks for delimiter.
-        return s.split(self.delimiter)
 
-    def _call_2(self, s):
-        return [w.rstrip(" ").lstrip(" ") for w in self._call_1(s)]
 
-    def _call_3(self, s):  # looks for qoutes.
-        words = []
-
-        class MyDialect(csv.Dialect):
-            delimiter = self.delimiter
-            quotechar = self.qoute
-            escapechar = '\\'
-            doublequote = True
-            quoting = csv.QUOTE_MINIMAL
-            skipinitialspace = False
-            lineterminator = "\n"
-
-        dia = MyDialect
-        parsed_words = list(csv.reader(StringIO(s), dialect=dia))[0]
-        words.extend(parsed_words)
-        return words
 
 def detect_seperator(text):
     """
@@ -143,115 +115,9 @@ def detect_seperator(text):
         frq.sort(reverse=True)  # most frequent first.
         return frq[0][-1]
 
-def text_reader_headers(path, delimiter, header_row_index, text_qualifier, linecount):
-    d = {}
-    delimiters = {
-        ".csv": ",",
-        ".tsv": "\t",
-        ".txt": None,
-    }
 
-    try:
-        with path.open("rb") as fi:
-            rawdata = fi.read(ENCODING_GUESS_BYTES)
-            encoding = chardet.detect(rawdata)["encoding"]
-
-        if delimiter is None:
-            with path.open("r", encoding=encoding, errors="ignore") as fi:
-                lines = []
-                for n, line in enumerate(fi, -header_row_index):
-                    if n < 0:
-                        continue
-                    line = line.rstrip("\n")
-                    lines.append(line)
-                    if n >= linecount:
-                        break  # break on first
-                try:
-                    d["delimiter"] = delimiter = detect_seperator("\n".join(lines))
-                except ValueError as e:
-                    if e.args == ("separator not detected", ):
-                        d["delimiter"] = delimiter = None # this will handle the case of 1 column, 1 row
-                    else:
-                        raise e
-
-        if delimiter is None:
-            d["delimiter"] = delimiter = delimiters[path.suffix]  # pickup the default one
-            d[path.name] = [lines]
-            d["is_empty"] = True  # mark as empty to return an empty table instead of throwing
-        else:
-            kwargs = {}
-
-            if text_qualifier is not None:
-                kwargs["text_qualifier"] = text_qualifier
-                kwargs["quoting"] = "QUOTE_MINIMAL"
-            else:
-                kwargs["quoting"] = "QUOTE_NONE"
-
-            d[path.name] = _get_headers(
-                str(path), py_to_nim_encoding(encoding), header_row_index=header_row_index,
-                delimiter=delimiter,
-                linecount=linecount,
-                **kwargs
-            )
-        return d
-    except Exception as e:
-        raise ValueError(f"can't read {path.suffix}")
-
-def excel_reader_headers(path, delimiter, header_row_index, text_qualifier, linecount):
-    d = {}
-    book = openpyxl.open(str(path), read_only=True)
-
-    try:
-        all_sheets = book.sheetnames
-
-        for sheet_name, sheet in ((name, book[name]) for name in all_sheets):
-            fixup_worksheet(sheet)
-            if sheet.max_row is None:
-                max_rows = 0
-            else:
-                max_rows = min(sheet.max_row, linecount + 1)
-            container = [None] * max_rows
-            padding_ends = 0
-            max_column = sheet.max_column
-
-            for i, row_data in enumerate(sheet.iter_rows(0, header_row_index + max_rows, values_only=True), start=-header_row_index):
-                if i < 0:
-                    # NOTE: for some reason `iter_rows` specifying a start row starts reading cells as binary, instead skip the rows that are before our first read row
-                    continue
-
-                row_data = [strip_escape(r) for r in row_data]
-                
-                # NOTE: text readers do not cast types and give back strings, neither should xlsx reader, can't find documentation if it's possible to ignore this via `iter_rows` instead of casting back to string
-                container[i] = [DataTypes.to_json(v) for v in row_data]
-
-                for j, cell in enumerate(reversed(row_data)):
-                    if cell is None:
-                        continue
-
-                    padding_ends = max(padding_ends, max_column - j)
-
-                    break
-
-            d[sheet_name] = [None if c is None else c[0:padding_ends] for c in container]
-            d["delimiter"] = None
-    finally:
-        book.close()
-
-    return d
     
 
-def ods_reader_headers(path, delimiter, header_row_index, text_qualifier, linecount):
-    d = {
-        "delimiter": None
-    }
-    sheets = pyexcel.get_book_dict(file_name=str(path))
-
-    for sheet_name, data in sheets.items():
-        lines = [[DataTypes.to_json(v) for v in row] for row in data[header_row_index:header_row_index+linecount]]
-        
-        d[sheet_name] = lines
-
-    return d
 
 header_readers = {  # dict of file formats and functions used during Table.import_file
     "fods": excel_reader_headers,

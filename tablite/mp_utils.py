@@ -6,15 +6,13 @@ import psutil
 from tablite.config import Config
 
 
-def not_in(a, b):
-    return not operator.contains(str(a), str(b))
 
 
 def _in(a, b):
     """
     enables filter function 'in'
     """
-    return str(a) in str(b)
+    pass
     # return operator.contains(str(a), str(b))  # TODO : check which method is faster
 
 
@@ -79,15 +77,6 @@ def select_processing_method(fields, sp, mp):
     """
     return mp if is_mp(fields) else sp
 
-def maskify(arr):
-    none_mask = [False] * len(arr)  # Setting the default
-
-    for i in range(len(arr)):
-        if arr[i] is None:  # Check if our value is None
-            none_mask[i] = True
-            arr[i] = 0  # Remove None from the original array
-
-    return none_mask
 
 
 def share_mem(inp_arr, dtype):

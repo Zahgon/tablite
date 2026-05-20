@@ -68,139 +68,9 @@ def get_headers(
             linecount=linecount
         )
 
-def text_reader(
-    T: Type[K],
-    pid: str, path: Union[str, Path],
-    encoding: ValidEncoders ="ENC_UTF8",
-    *,
-    first_row_has_headers: bool=True, header_row_index: int=0,
-    columns: List[Union[str, None]]=None,
-    start: Union[str, None] = None, limit: Union[str, None]=None,
-    guess_datatypes: bool =False,
-    newline: str='\n', delimiter: str=',', text_qualifier: str='"',
-    quoting: ValidQuoting, strip_leading_and_tailing_whitespace: bool=True, skip_empty: ValidSkipEmpty = "NONE",
-    tqdm=_tqdm,
-    pbar:_tqdm = None
-) -> K:
-    assert isinstance(path, Path)
-    assert isinstance(pid, Path)
-
-    if pbar is None:
-        pbar = tqdm(total=10, desc=f"importing file")
-        pbar_close = True
-    else:
-        pbar_close = False
-
-    try:
-        table = nl.text_reader(
-            pid=str(pid),
-            path=str(path),
-            encoding=encoding,
-            first_row_has_headers=first_row_has_headers, header_row_index=header_row_index,
-            columns=columns,
-            start=start, limit=limit,
-            guess_datatypes=guess_datatypes,
-            newline=newline, delimiter=delimiter, text_qualifier=text_qualifier,
-            quoting=quoting,
-            strip_leading_and_tailing_whitespace=strip_leading_and_tailing_whitespace,
-            skip_empty=skip_empty,
-            page_size=Config.PAGE_SIZE
-        )
-
-        pbar.update(1)
-
-        task_info = table["task"]
-        task_columns = table["columns"]
-
-        ti_tasks = task_info["tasks"]
-        ti_import_field_names = task_info["import_field_names"]
-
-        is_windows = platform.system() == "Windows"
-        use_logical = False if is_windows else True
-
-        cpus = max(psutil.cpu_count(logical=use_logical), 1)
-
-        pbar_step = 4 / max(len(ti_tasks), 1)
-
-        class WrapUpdate:
-            def update(self, n):
-                pbar.update(n * pbar_step)
-
-        wrapped_pbar = WrapUpdate()
-
-        def next_task(task: Task, page_info):
-            wrapped_pbar.update(1)
-            return Task(
-                nl.text_reader_task,
-                *task.args, **task.kwargs, page_info=page_info
-            )
-
-        tasks = [
-            TaskChain(
-                Task(
-                    nl.collect_text_reader_page_info_task,
-                    task=t,
-                    task_info=task_info
-                ), next_task=next_task
-            ) for t in ti_tasks
-        ]
-
-        is_sp = False
-
-        if Config.MULTIPROCESSING_MODE == Config.FALSE:
-            is_sp = True
-        elif Config.MULTIPROCESSING_MODE == Config.FORCE:
-            is_sp = False
-        elif Config.MULTIPROCESSING_MODE == Config.AUTO and cpus <= 1 or len(tasks) <= 1:
-            is_sp = True
-
-        if is_sp:
-            res = []
-
-            for task in tasks:
-                page = task.execute()
-
-                res.append(page)
-        else:
-            with TaskManager(cpus, error_mode="exception") as tm:
-                res = tm.execute(tasks, pbar=wrapped_pbar)
-
-        col_path = pid
-        column_dict = {
-            cols: Column(col_path)
-            for cols in ti_import_field_names
-        }
-
-        for res_pages in res:
-            col_map = {
-                n: res_pages[i]
-                for i, n in enumerate(ti_import_field_names)
-            }
-
-            for k, c in column_dict.items():
-                c.pages.append(col_map[k])
-
-        if columns is None:
-            columns = [c["name"] for c in task_columns]
-
-        table_dict = {
-            a["name"]: column_dict[b]
-            for a, b in zip(task_columns, columns)
-        }
-
-        pbar.update(pbar.total - pbar.n)
-
-        table = T(columns=table_dict)
-    finally:
-        if pbar_close:
-            pbar.close()
-
-    return table
 
 
 
-def wrap(str_: str) -> str:
-    return '"' + str_.replace('"', '\\"').replace("'", "\\'").replace("\n", "\\n").replace("\t", "\\t") + '"'
 
 
 def _collect_cs_info(i: int, columns: dict, res_cols_pass: list, res_cols_fail: list, original_pages_map: list):
@@ -322,8 +192,6 @@ def column_select(table: K, cols: list[ColumnSelectorDict], tqdm=_tqdm, pbar:_tq
 def read_page(path: Union[str, Path]) -> np.ndarray:
     return nl.read_page(str(path))
 
-def repaginate(column: Column):
-    nl.repaginate(column)
 
 def nearest_neighbour(T: BaseTable, sources: Union[list[str], None], missing: Union[list, None], targets: Union[list[str], None], tqdm=_tqdm, pbar: _tqdm = None):
     return nl.nearest_neighbour(T, sources, list(missing), targets, tqdm, pbar)
@@ -331,5 +199,3 @@ def nearest_neighbour(T: BaseTable, sources: Union[list[str], None], missing: Un
 def groupby(T, keys, functions, tqdm=_tqdm, pbar: _tqdm=None):
     return nl.groupby(T, keys, functions, tqdm, pbar)
 
-def filter(table: BaseTable, expressions: list[FilterDict], type: FilterType, tqdm = _tqdm, pbar: _tqdm = None):
-    return nl.filter(table, expressions, type, tqdm, pbar)
